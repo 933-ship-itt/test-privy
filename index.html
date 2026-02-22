@@ -2,81 +2,69 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LynkPay Privy Test</title>
-    
-    <script 
-        src="https://unpkg.com/@privy-io/js-sdk-core@latest/dist/index.umd.js"
-        onload="initPrivy()"
-    ></script>
-    
+    <title>LynkPay Debugger</title>
+    <script src="https://unpkg.com/@privy-io/js-sdk-core@latest/dist/index.umd.js"></script>
     <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; background: #f0f2f5; margin: 0; }
-        .card { background: white; padding: 2.5rem; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); text-align: center; width: 350px; }
-        button { background: #007AFF; color: white; border: none; padding: 14px 28px; border-radius: 12px; font-size: 16px; font-weight: 600; cursor: pointer; transition: 0.3s; width: 100%; }
-        button:hover { background: #005ecb; transform: translateY(-1px); }
-        button:disabled { background: #ccc; cursor: not-allowed; }
-        .status { margin-top: 1.5rem; color: #666; font-size: 13px; font-weight: 500; }
-        .addr { background: #f8f9fa; padding: 8px; border-radius: 6px; font-family: monospace; font-size: 12px; margin: 10px 0; display: block; word-break: break-all; }
+        body { font-family: sans-serif; text-align: center; padding: 50px; background: #fafafa; }
+        .status-box { padding: 20px; border-radius: 10px; background: white; border: 1px solid #ddd; display: inline-block; }
+        .error { color: red; font-weight: bold; }
+        .success { color: green; font-weight: bold; }
     </style>
 </head>
 <body>
 
-    <div class="card">
-        <h2 style="margin-top:0">LynkPay</h2>
-        <p style="color:#444">Test Deposit Flow</p>
-        
-        <span class="addr" id="wallet-addr">0x742d35Cc6634C0532925a3b844Bc454e4438f44e</span>
-        
-        <button id="deposit-btn" onclick="startTestDeposit()" disabled>Initialize Privy...</button>
-        
-        <div id="status" class="status">Waiting for SDK...</div>
+    <div class="status-box">
+        <h2>Privy Connection Status</h2>
+        <div id="status">Checking credentials...</div>
+        <br>
+        <button id="btn" onclick="runDeposit()" style="padding:10px 20px;" disabled>Waiting for SDK...</button>
     </div>
 
     <script>
-        let privy; // Define in global scope but initialize later
+        const APP_ID = 'cmlwqj4ar01n20djx41hon6s9';
+        const CLIENT_ID = 'client-WY6W4TBBpokBd6VYh1xRkaAYWBkGvJw6HdVeAr4cvHC9f';
+        let privy;
 
-        function initPrivy() {
+        // 1. Force a check after 5 seconds
+        setTimeout(() => {
+            if (!privy) {
+                document.getElementById('status').innerHTML = `
+                    <p class="error">STUCK DETECTED!</p>
+                    <p>Possible reasons:<br>
+                    1. You didn't add <strong>${window.location.origin}</strong> to Privy Dashboard > Domains.<br>
+                    2. You are opening this as a local file (file://). <strong>You MUST use a local server</strong> (like Live Server or http-server).</p>
+                `;
+            }
+        }, 5000);
+
+        window.onload = () => {
             try {
-                // Initialize using your specific keys
+                // 2. Minimal Init
                 privy = new Privy({
-                    appId: 'cmlwqj4ar01n20djx41hon6s9',
-                    clientId: 'client-WY6W4TBBpokBd6VYh1xRkaAYWBkGvJw6HdVeAr4cvHC9f',
-                    config: {
-                        supportedChains: [137], // Polygon
-                    }
+                    appId: APP_ID,
+                    clientId: CLIENT_ID,
+                    config: { supportedChains: [137] }
                 });
 
-                document.getElementById('status').innerText = "Privy Ready ✅";
-                document.getElementById('deposit-btn').disabled = false;
-                document.getElementById('deposit-btn').innerText = "Deposit 100 USDC";
-                console.log("Privy Initialized Successfully");
-            } catch (e) {
-                console.error("Init Error:", e);
-                document.getElementById('status').innerText = "Init Failed: " + e.message;
+                document.getElementById('status').innerHTML = '<span class="success">Connected to Privy ✅</span>';
+                document.getElementById('btn').disabled = false;
+                document.getElementById('btn').innerText = "Test 100 USDC Deposit";
+            } catch (err) {
+                document.getElementById('status').className = 'error';
+                document.getElementById('status').innerText = "Init Error: " + err.message;
             }
-        }
+        };
 
-        async function startTestDeposit() {
-            if (!privy) return alert("Privy not ready yet!");
-
-            const statusDiv = document.getElementById('status');
-            const targetAddress = document.getElementById('wallet-addr').innerText;
-
-            statusDiv.innerText = "Opening Checkout...";
-
+        async function runDeposit() {
             try {
-                // Call the funding flow
-                await privy.fundWallet(targetAddress, {
-                    chain: 137,     // Polygon
-                    asset: 'USDC', 
+                // 3. Test with a standard Polygon address
+                await privy.fundWallet('0x742d35Cc6634C0532925a3b844Bc454e4438f44e', {
+                    chain: 137,
+                    asset: 'USDC',
                     amount: '100'
                 });
-
-                statusDiv.innerText = "Flow completed. Check PolygonScan.";
-            } catch (error) {
-                console.error("Funding Error:", error);
-                statusDiv.innerText = "Error: " + error.message;
+            } catch (e) {
+                alert("Funding Error: " + e.message);
             }
         }
     </script>
