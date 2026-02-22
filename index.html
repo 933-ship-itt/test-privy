@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Privy SDK Test</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+        .card {
+            background: white;
+            border-radius: 1rem;
+            padding: 2rem;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+        }
+        .btn {
+            background: #4f46e5;
+            color: white;
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.5rem;
+            font-weight: 600;
+            transition: all 0.2s;
+            border: none;
+            cursor: pointer;
+        }
+        .btn:hover {
+            background: #4338ca;
+            transform: translateY(-1px);
+        }
+        .btn:disabled {
+            background: #9ca3af;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .status {
+            padding: 1rem;
+            border-radius: 0.5rem;
+            margin: 1rem 0;
+        }
+        .success {
+            background: #d1fae5;
+            color: #065f46;
+            border-left: 4px solid #10b981;
+        }
+        .error {
+            background: #fee2e2;
+            color: #991b1b;
+            border-left: 4px solid #ef4444;
+        }
+        .info {
+            background: #dbeafe;
+            color: #1e40af;
+            border-left: 4px solid #3b82f6;
+        }
+        pre {
+            background: #1f2937;
+            color: #e5e7eb;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            overflow-x: auto;
+            font-size: 0.875rem;
+        }
+    </style>
+    <!-- Try multiple possible Privy CDN paths -->
+    <script src="https://privy.io/js-sdk-core/privy.umd.js"></script>
+    <script src="https://privy.io/js-sdk-core/v1/privy.umd.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@privy-io/js-sdk-core@1.0.0/dist/privy.umd.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <div class="card">
+            <h1 class="text-3xl font-bold text-center mb-2">🧪 Privy SDK Test</h1>
+            <p class="text-gray-600 text-center mb-8">Testing Privy SDK loading and initialization</p>
+            
+            <!-- App Credentials -->
+            <div class="mb-6 p-4 bg-gray-50 rounded-lg">
+                <h2 class="font-semibold mb-2">📋 App Credentials:</h2>
+                <p class="text-sm mb-1"><span class="font-medium">App ID:</span> cmlwqj4ar01n20djx41hon6s9</p>
+                <p class="text-sm"><span class="font-medium">Client ID:</span> client-WY6W4TBBpokBd6VYh1xRkaAYWBkGvJw6HdVeAr4cvHC9f</p>
+            </div>
+            
+            <!-- SDK Load Status -->
+            <div id="sdk-status" class="status info">
+                🔄 Checking Privy SDK availability...
+            </div>
+            
+            <!-- Initialization Status -->
+            <div id="init-status" class="status info">
+                🔄 Attempting to initialize Privy...
+            </div>
+            
+            <!-- Test Wallet Address -->
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Test Wallet Address (Polygon):</label>
+                <input type="text" id="wallet-address" value="0x2b01E2C0024aaF8362a11f91A545F24cB5e5261f" 
+                       class="w-full p-3 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 font-mono text-sm">
+            </div>
+            
+            <!-- Test Buttons -->
+            <div class="flex flex-col gap-3 mb-6">
+                <button id="test-fund-btn" class="btn" disabled>
+                    💳 Test fundWallet() with Selected Address
+                </button>
+                <button id="check-sdk-btn" class="btn bg-gray-600 hover:bg-gray-700">
+                    🔍 Check SDK Availability
+                </button>
+            </div>
+            
+            <!-- SDK Inspection Results -->
+            <div class="mt-6">
+                <h3 class="font-semibold mb-2">🔍 Window Object Inspection:</h3>
+                <pre id="inspect-results" class="text-xs">Click "Check SDK Availability" to inspect...</pre>
+            </div>
+            
+            <!-- Error Log -->
+            <div class="mt-6">
+                <h3 class="font-semibold mb-2">📝 Error/Info Log:</h3>
+                <pre id="error-log" class="text-xs h-32 overflow-y-auto">No errors yet...</pre>
+            </div>
+            
+            <!-- Instructions -->
+            <div class="mt-8 p-4 bg-blue-50 rounded-lg text-sm">
+                <p class="font-medium text-blue-800 mb-2">📌 What to look for:</p>
+                <ul class="list-disc list-inside text-blue-700 space-y-1">
+                    <li>Check if Privy SDK loads successfully</li>
+                    <li>Look for window.PrivyClient or window.PrivyJsCore</li>
+                    <li>Verify initialization with your App ID</li>
+                    <li>Test fundWallet() to see if it opens checkout</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Logging function
+        const errorLog = document.getElementById('error-log');
+        function log(message, type = 'info') {
+            const entry = `[${new Date().toLocaleTimeString()}] ${type.toUpperCase()}: ${message}\n`;
+            errorLog.textContent = entry + errorLog.textContent;
+            console.log(`${type}:`, message);
+        }
+
+        // Update status
+        function updateSDKStatus(message, type = 'info') {
+            const statusEl = document.getElementById('sdk-status');
+            statusEl.className = `status ${type}`;
+            statusEl.textContent = message;
+        }
+
+        function updateInitStatus(message, type = 'info') {
+            const statusEl = document.getElementById('init-status');
+            statusEl.className = `status ${type}`;
+            statusEl.textContent = message;
+        }
+
+        // Inspect window object for Privy
+        function inspectPrivy() {
+            const results = [];
+            
+            // Check various possible Privy locations
+            results.push('window.PrivyClient:', typeof window.PrivyClient);
+            results.push('window.PrivyJsCore:', typeof window.PrivyJsCore);
+            results.push('window.privy:', typeof window.privy);
+            results.push('window.Privy:', typeof window.Privy);
+            
+            if (window.PrivyJsCore) {
+                results.push('\nwindow.PrivyJsCore properties:', Object.keys(window.PrivyJsCore).join(', '));
+            }
+            
+            if (window.PrivyClient) {
+                results.push('\nwindow.PrivyClient is available as constructor');
+            }
+            
+            // Check all scripts loaded
+            const scripts = document.getElementsByTagName('script');
+            results.push('\nLoaded scripts:');
+            for (let script of scripts) {
+                if (script.src.includes('privy')) {
+                    results.push(`  - ${script.src}`);
+                }
+            }
+            
+            document.getElementById('inspect-results').textContent = results.join('\n');
+        }
+
+        // Initialize Privy
+        let privyClient = null;
+        
+        async function initPrivy() {
+            const appId = 'cmlwqj4ar01n20djx41hon6s9';
+            const clientId = 'client-WY6W4TBBpokBd6VYh1xRkaAYWBkGvJw6HdVeAr4cvHC9f';
+            
+            updateInitStatus('🔄 Attempting to initialize Privy...', 'info');
+            
+            // Try different initialization patterns
+            try {
+                // Pattern 1: Direct PrivyClient
+                if (window.PrivyClient) {
+                    log('Found window.PrivyClient, attempting initialization...');
+                    privyClient = new window.PrivyClient({
+                        appId: appId,
+                        clientId: clientId
+                    });
+                    updateInitStatus('✅ Privy initialized successfully with window.PrivyClient', 'success');
+                    log('Privy initialized with window.PrivyClient', 'success');
+                    enableTestButton();
+                    return true;
+                }
+                
+                // Pattern 2: PrivyJsCore
+                if (window.PrivyJsCore && window.PrivyJsCore.PrivyClient) {
+                    log('Found window.PrivyJsCore.PrivyClient, attempting initialization...');
+                    privyClient = new window.PrivyJsCore.PrivyClient({
+                        appId: appId,
+                        clientId: clientId
+                    });
+                    updateInitStatus('✅ Privy initialized successfully with PrivyJsCore', 'success');
+                    log('Privy initialized with PrivyJsCore', 'success');
+                    enableTestButton();
+                    return true;
+                }
+                
+                // Pattern 3: Wait a bit and try again
+                log('Privy not found, waiting 2 seconds...');
+                setTimeout(() => {
+                    if (window.PrivyClient) {
+                        privyClient = new window.PrivyClient({
+                            appId: appId,
+                            clientId: clientId
+                        });
+                        updateInitStatus('✅ Privy initialized successfully (delayed)', 'success');
+                        log('Privy initialized after delay', 'success');
+                        enableTestButton();
+                    } else {
+                        updateInitStatus('❌ Privy SDK not available after delay', 'error');
+                        log('Privy SDK not available', 'error');
+                    }
+                }, 2000);
+                
+            } catch (error) {
+                updateInitStatus('❌ Privy initialization failed', 'error');
+                log(`Initialization error: ${error.message}`, 'error');
+                console.error('Privy init error:', error);
+            }
+        }
+
+        function enableTestButton() {
+            document.getElementById('test-fund-btn').disabled = false;
+        }
+
+        // Check SDK on load
+        window.addEventListener('load', () => {
+            log('Page loaded, checking for Privy SDK...');
+            
+            // Check if Privy is available immediately
+            setTimeout(() => {
+                if (window.PrivyClient || (window.PrivyJsCore && window.PrivyJsCore.PrivyClient)) {
+                    updateSDKStatus('✅ Privy SDK detected!', 'success');
+                    log('Privy SDK detected in window object', 'success');
+                    initPrivy();
+                } else {
+                    updateSDKStatus('❌ Privy SDK not detected. Checking again in 2 seconds...', 'error');
+                    log('Privy SDK not found in window object', 'error');
+                    
+                    // Check again after 2 seconds
+                    setTimeout(() => {
+                        if (window.PrivyClient || (window.PrivyJsCore && window.PrivyJsCore.PrivyClient)) {
+                            updateSDKStatus('✅ Privy SDK detected (delayed)!', 'success');
+                            log('Privy SDK detected after delay', 'success');
+                            initPrivy();
+                        } else {
+                            updateSDKStatus('❌ Privy SDK failed to load. Check CDN URLs.', 'error');
+                            log('Privy SDK still not available after delay', 'error');
+                            inspectPrivy();
+                        }
+                    }, 2000);
+                }
+                
+                inspectPrivy();
+            }, 500);
+        });
+
+        // Check SDK button
+        document.getElementById('check-sdk-btn').addEventListener('click', () => {
+            inspectPrivy();
+            
+            if (window.PrivyClient || (window.PrivyJsCore && window.PrivyJsCore.PrivyClient)) {
+                updateSDKStatus('✅ Privy SDK is available!', 'success');
+                log('Privy SDK confirmed available', 'success');
+                initPrivy();
+            } else {
+                updateSDKStatus('❌ Privy SDK not available', 'error');
+                log('Privy SDK not found', 'error');
+            }
+        });
+
+        // Test fundWallet button
+        document.getElementById('test-fund-btn').addEventListener('click', async () => {
+            if (!privyClient) {
+                log('Privy client not initialized', 'error');
+                alert('Privy client not initialized. Please wait or check SDK loading.');
+                return;
+            }
+
+            const walletAddress = document.getElementById('wallet-address').value.trim();
+            if (!walletAddress) {
+                alert('Please enter a wallet address');
+                return;
+            }
+
+            log(`Attempting fundWallet with address: ${walletAddress}`, 'info');
+            
+            try {
+                // Generate a test reference
+                const testRef = 'TEST-' + Date.now().toString(36).toUpperCase();
+                
+                // Try to call fundWallet
+                const result = await privyClient.fundWallet({
+                    address: walletAddress,
+                    chainId: 137, // Polygon
+                    asset: 'USDC',
+                    fundingMethods: ['card', 'apple-pay', 'moonpay'],
+                    metadata: {
+                        reference: testRef,
+                        test: true
+                    }
+                });
+                
+                log(`fundWallet result: ${JSON.stringify(result)}`, 'success');
+                alert('fundWallet called successfully! Check console for result.');
+                
+            } catch (error) {
+                log(`fundWallet error: ${error.message}`, 'error');
+                console.error('fundWallet error:', error);
+                alert(`Error: ${error.message}`);
+            }
+        });
+
+        // Log all CDN attempts
+        log('Test page loaded. Trying multiple Privy CDN paths...', 'info');
+        log('CDN URLs attempted:', 'info');
+        log('  - https://privy.io/js-sdk-core/privy.umd.js', 'info');
+        log('  - https://privy.io/js-sdk-core/v1/privy.umd.js', 'info');
+        log('  - https://cdn.jsdelivr.net/npm/@privy-io/js-sdk-core@1.0.0/dist/privy.umd.min.js', 'info');
+    </script>
+</body>
+</html>
