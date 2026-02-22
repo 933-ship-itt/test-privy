@@ -4,59 +4,78 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>LynkPay Privy Test</title>
-    <script src="https://unpkg.com/@privy-io/js-sdk-core@latest/dist/index.umd.js"></script>
+    
+    <script 
+        src="https://unpkg.com/@privy-io/js-sdk-core@latest/dist/index.umd.js"
+        onload="initPrivy()"
+    ></script>
     
     <style>
-        body { font-family: sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; background: #f4f7f6; }
-        .card { background: white; padding: 2rem; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); text-align: center; }
-        button { background: #007AFF; color: white; border: none; padding: 12px 24px; border-radius: 8px; font-size: 16px; cursor: pointer; transition: 0.2s; }
-        button:hover { background: #0056b3; }
-        .status { margin-top: 1rem; color: #666; font-size: 14px; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; background: #f0f2f5; margin: 0; }
+        .card { background: white; padding: 2.5rem; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); text-align: center; width: 350px; }
+        button { background: #007AFF; color: white; border: none; padding: 14px 28px; border-radius: 12px; font-size: 16px; font-weight: 600; cursor: pointer; transition: 0.3s; width: 100%; }
+        button:hover { background: #005ecb; transform: translateY(-1px); }
+        button:disabled { background: #ccc; cursor: not-allowed; }
+        .status { margin-top: 1.5rem; color: #666; font-size: 13px; font-weight: 500; }
+        .addr { background: #f8f9fa; padding: 8px; border-radius: 6px; font-family: monospace; font-size: 12px; margin: 10px 0; display: block; word-break: break-all; }
     </style>
 </head>
 <body>
 
     <div class="card">
-        <h2>LynkPay Deposit Test</h2>
-        <p>Target Wallet: <br><strong id="wallet-addr">0x742d35Cc6634C0532925a3b844Bc454e4438f44e</strong></p>
+        <h2 style="margin-top:0">LynkPay</h2>
+        <p style="color:#444">Test Deposit Flow</p>
         
-        <button onclick="startTestDeposit()">Buy USDC (Apple Pay/Card)</button>
+        <span class="addr" id="wallet-addr">0x742d35Cc6634C0532925a3b844Bc454e4438f44e</span>
         
-        <div id="status" class="status">Privy is initializing...</div>
+        <button id="deposit-btn" onclick="startTestDeposit()" disabled>Initialize Privy...</button>
+        
+        <div id="status" class="status">Waiting for SDK...</div>
     </div>
 
     <script>
-        // 3. Initialize Privy with your specific keys
-        const appId = 'cmlwqj4ar01n20djx41hon6s9';
-        const clientId = 'client-WY6W4TBBpokBd6VYh1xRkaAYWBkGvJw6HdVeAr4cvHC9f';
+        let privy; // Define in global scope but initialize later
 
-        const privy = new Privy({
-            appId: appId,
-            clientId: clientId,
-            config: {
-                supportedChains: [137], // Polygon
+        function initPrivy() {
+            try {
+                // Initialize using your specific keys
+                privy = new Privy({
+                    appId: 'cmlwqj4ar01n20djx41hon6s9',
+                    clientId: 'client-WY6W4TBBpokBd6VYh1xRkaAYWBkGvJw6HdVeAr4cvHC9f',
+                    config: {
+                        supportedChains: [137], // Polygon
+                    }
+                });
+
+                document.getElementById('status').innerText = "Privy Ready ✅";
+                document.getElementById('deposit-btn').disabled = false;
+                document.getElementById('deposit-btn').innerText = "Deposit 100 USDC";
+                console.log("Privy Initialized Successfully");
+            } catch (e) {
+                console.error("Init Error:", e);
+                document.getElementById('status').innerText = "Init Failed: " + e.message;
             }
-        });
-
-        document.getElementById('status').innerText = "Privy Ready ✅";
+        }
 
         async function startTestDeposit() {
+            if (!privy) return alert("Privy not ready yet!");
+
             const statusDiv = document.getElementById('status');
             const targetAddress = document.getElementById('wallet-addr').innerText;
 
-            statusDiv.innerText = "Opening Privy Modal...";
+            statusDiv.innerText = "Opening Checkout...";
 
             try {
-                // 4. Trigger the On-ramp Flow
+                // Call the funding flow
                 await privy.fundWallet(targetAddress, {
                     chain: 137,     // Polygon
-                    asset: 'USDC',   // Ask for USDC
-                    amount: '100'    // Default amount
+                    asset: 'USDC', 
+                    amount: '100'
                 });
 
-                statusDiv.innerText = "Modal Closed. Check wallet balance on PolygonScan.";
+                statusDiv.innerText = "Flow completed. Check PolygonScan.";
             } catch (error) {
-                console.error("Privy Error:", error);
+                console.error("Funding Error:", error);
                 statusDiv.innerText = "Error: " + error.message;
             }
         }
