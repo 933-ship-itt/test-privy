@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Privy SDK Test</title>
+    <title>Privy Direct Integration Test</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body {
@@ -12,7 +12,7 @@
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
         }
         .container {
-            max-width: 800px;
+            max-width: 1000px;
             margin: 0 auto;
             padding: 2rem;
         }
@@ -36,10 +36,11 @@
             background: #4338ca;
             transform: translateY(-1px);
         }
-        .btn:disabled {
-            background: #9ca3af;
-            cursor: not-allowed;
-            transform: none;
+        .btn-secondary {
+            background: #6b7280;
+        }
+        .btn-secondary:hover {
+            background: #4b5563;
         }
         .status {
             padding: 1rem;
@@ -61,6 +62,41 @@
             color: #1e40af;
             border-left: 4px solid #3b82f6;
         }
+        .warning {
+            background: #fef3c7;
+            color: #92400e;
+            border-left: 4px solid #f59e0b;
+        }
+        .widget-container {
+            width: 100%;
+            height: 600px;
+            border: 2px solid #e5e7eb;
+            border-radius: 0.75rem;
+            overflow: hidden;
+            margin: 1rem 0;
+            background: #f9fafb;
+            position: relative;
+        }
+        .widget-container iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+        .loading-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(255,255,255,0.9);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+        }
+        .hidden {
+            display: none;
+        }
         pre {
             background: #1f2937;
             color: #e5e7eb;
@@ -68,18 +104,33 @@
             border-radius: 0.5rem;
             overflow-x: auto;
             font-size: 0.875rem;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        .tab {
+            padding: 0.75rem 1.5rem;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+        .tab.active {
+            border-bottom-color: #4f46e5;
+            color: #4f46e5;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
         }
     </style>
-    <!-- Try multiple possible Privy CDN paths -->
-    <script src="https://privy.io/js-sdk-core/privy.umd.js"></script>
-    <script src="https://privy.io/js-sdk-core/v1/privy.umd.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@privy-io/js-sdk-core@1.0.0/dist/privy.umd.min.js"></script>
 </head>
 <body>
     <div class="container">
         <div class="card">
-            <h1 class="text-3xl font-bold text-center mb-2">🧪 Privy SDK Test</h1>
-            <p class="text-gray-600 text-center mb-8">Testing Privy SDK loading and initialization</p>
+            <h1 class="text-3xl font-bold text-center mb-2">🧪 Privy Direct Integration Test</h1>
+            <p class="text-gray-600 text-center mb-8">Testing Privy's widget-based integration (no SDK required)</p>
             
             <!-- App Credentials -->
             <div class="mb-6 p-4 bg-gray-50 rounded-lg">
@@ -87,270 +138,330 @@
                 <p class="text-sm mb-1"><span class="font-medium">App ID:</span> cmlwqj4ar01n20djx41hon6s9</p>
                 <p class="text-sm"><span class="font-medium">Client ID:</span> client-WY6W4TBBpokBd6VYh1xRkaAYWBkGvJw6HdVeAr4cvHC9f</p>
             </div>
-            
-            <!-- SDK Load Status -->
-            <div id="sdk-status" class="status info">
-                🔄 Checking Privy SDK availability...
+
+            <!-- Tabs -->
+            <div class="flex border-b border-gray-200 mb-6">
+                <div class="tab active" data-tab="widget">🧩 Widget Test</div>
+                <div class="tab" data-tab="direct">🔗 Direct URL</div>
+                <div class="tab" data-tab="info">ℹ️ Info</div>
             </div>
-            
-            <!-- Initialization Status -->
-            <div id="init-status" class="status info">
-                🔄 Attempting to initialize Privy...
+
+            <!-- Widget Tab -->
+            <div id="tab-widget" class="tab-content active">
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Destination Wallet Address (Polygon):</label>
+                    <input type="text" id="wallet-address" value="0x2b01E2C0024aaF8362a11f91A545F24cB5e5261f" 
+                           class="w-full p-3 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 font-mono text-sm">
+                </div>
+
+                <div class="flex gap-3 mb-4">
+                    <button id="load-widget-btn" class="btn">
+                        🚀 Load Privy Widget
+                    </button>
+                    <button id="clear-widget-btn" class="btn btn-secondary">
+                        🧹 Clear Widget
+                    </button>
+                </div>
+
+                <!-- Widget Container -->
+                <div id="widget-container" class="widget-container hidden">
+                    <div id="loading-overlay" class="loading-overlay">
+                        <div class="text-center">
+                            <svg class="animate-spin h-8 w-8 text-indigo-600 mx-auto mb-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            <p class="text-gray-600">Loading Privy widget...</p>
+                        </div>
+                    </div>
+                    <iframe id="privy-iframe" sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-modals allow-downloads allow-storage-access-by-user-activation" allow="payment *; clipboard-write *; accelerometer; camera; gyroscope; microphone;"></iframe>
+                </div>
+
+                <div id="widget-status" class="status info mt-4">
+                    🔄 Click "Load Privy Widget" to test the integration
+                </div>
             </div>
-            
-            <!-- Test Wallet Address -->
-            <div class="mb-4">
-                <label class="block text-sm font-medium text-gray-700 mb-2">Test Wallet Address (Polygon):</label>
-                <input type="text" id="wallet-address" value="0x2b01E2C0024aaF8362a11f91A545F24cB5e5261f" 
-                       class="w-full p-3 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 font-mono text-sm">
+
+            <!-- Direct URL Tab -->
+            <div id="tab-direct" class="tab-content">
+                <p class="mb-4 text-gray-600">Direct Privy funding URLs you can open in a new tab:</p>
+                
+                <div class="space-y-4">
+                    <div class="p-4 bg-gray-50 rounded-lg">
+                        <p class="font-medium mb-2">Basic Funding URL:</p>
+                        <pre class="text-xs break-all" id="basic-url">https://privy.io/fund?appId=cmlwqj4ar01n20djx41hon6s9&address=0x2b01E2C0024aaF8362a11f91A545F24cB5e5261f&chainId=137&asset=USDC</pre>
+                        <button onclick="copyToClipboard('basic-url')" class="mt-2 text-sm text-indigo-600 hover:text-indigo-800">📋 Copy URL</button>
+                        <a href="#" id="basic-link" target="_blank" class="mt-2 ml-4 text-sm text-indigo-600 hover:text-indigo-800">🔗 Open in new tab</a>
+                    </div>
+
+                    <div class="p-4 bg-gray-50 rounded-lg">
+                        <p class="font-medium mb-2">With Client ID:</p>
+                        <pre class="text-xs break-all" id="client-url">https://privy.io/fund?appId=cmlwqj4ar01n20djx41hon6s9&clientId=client-WY6W4TBBpokBd6VYh1xRkaAYWBkGvJw6HdVeAr4cvHC9f&address=0x2b01E2C0024aaF8362a11f91A545F24cB5e5261f&chainId=137&asset=USDC</pre>
+                        <button onclick="copyToClipboard('client-url')" class="mt-2 text-sm text-indigo-600 hover:text-indigo-800">📋 Copy URL</button>
+                        <a href="#" id="client-link" target="_blank" class="mt-2 ml-4 text-sm text-indigo-600 hover:text-indigo-800">🔗 Open in new tab</a>
+                    </div>
+                </div>
+
+                <div class="mt-6 p-4 bg-yellow-50 rounded-lg">
+                    <p class="text-sm text-yellow-800">
+                        ⚠️ If the widget doesn't load, try opening these URLs directly in a new tab. 
+                        You may need to be logged into Privy first.
+                    </p>
+                </div>
             </div>
-            
-            <!-- Test Buttons -->
-            <div class="flex flex-col gap-3 mb-6">
-                <button id="test-fund-btn" class="btn" disabled>
-                    💳 Test fundWallet() with Selected Address
-                </button>
-                <button id="check-sdk-btn" class="btn bg-gray-600 hover:bg-gray-700">
-                    🔍 Check SDK Availability
-                </button>
+
+            <!-- Info Tab -->
+            <div id="tab-info" class="tab-content">
+                <h3 class="font-semibold mb-4">📚 Integration Notes:</h3>
+                
+                <div class="space-y-4">
+                    <div class="p-4 bg-blue-50 rounded-lg">
+                        <p class="font-medium text-blue-800 mb-2">Alternative Integration Methods:</p>
+                        <ul class="list-disc list-inside text-blue-700 text-sm space-y-2">
+                            <li><span class="font-medium">Iframe Widget:</span> Direct iframe embedding with proper sandbox attributes</li>
+                            <li><span class="font-medium">Redirect Flow:</span> Redirect users to Privy's hosted funding page</li>
+                            <li><span class="font-medium">Pop-up Window:</span> Open Privy in a pop-up window</li>
+                        </ul>
+                    </div>
+
+                    <div class="p-4 bg-gray-50 rounded-lg">
+                        <p class="font-medium mb-2">Required Parameters:</p>
+                        <pre class="text-xs">
+{
+    appId: "cmlwqj4ar01n20djx41hon6s9",
+    clientId: "client-WY6W4TBBpokBd6VYh1xRkaAYWBkGvJw6HdVeAr4cvHC9f",
+    address: "0x...", // Destination wallet
+    chainId: 137,     // Polygon
+    asset: "USDC",    // Token to buy
+    fundingMethods: ["card", "apple-pay", "moonpay"]
+}</pre>
+                    </div>
+
+                    <div class="p-4 bg-gray-50 rounded-lg">
+                        <p class="font-medium mb-2">Troubleshooting Steps:</p>
+                        <ol class="list-decimal list-inside text-sm space-y-1 text-gray-700">
+                            <li>Check if privy.io is accessible from your network</li>
+                            <li>Try opening direct URLs in incognito mode</li>
+                            <li>Check browser console for CORS/network errors</li>
+                            <li>Verify your App ID and Client ID are correct</li>
+                            <li>Try using a different browser</li>
+                        </ol>
+                    </div>
+                </div>
             </div>
-            
-            <!-- SDK Inspection Results -->
-            <div class="mt-6">
-                <h3 class="font-semibold mb-2">🔍 Window Object Inspection:</h3>
-                <pre id="inspect-results" class="text-xs">Click "Check SDK Availability" to inspect...</pre>
-            </div>
-            
+
             <!-- Error Log -->
-            <div class="mt-6">
-                <h3 class="font-semibold mb-2">📝 Error/Info Log:</h3>
-                <pre id="error-log" class="text-xs h-32 overflow-y-auto">No errors yet...</pre>
+            <div class="mt-8">
+                <h3 class="font-semibold mb-2">📝 Console Log:</h3>
+                <pre id="console-log" class="text-xs h-40 overflow-y-auto">No entries yet...</pre>
             </div>
-            
-            <!-- Instructions -->
-            <div class="mt-8 p-4 bg-blue-50 rounded-lg text-sm">
-                <p class="font-medium text-blue-800 mb-2">📌 What to look for:</p>
-                <ul class="list-disc list-inside text-blue-700 space-y-1">
-                    <li>Check if Privy SDK loads successfully</li>
-                    <li>Look for window.PrivyClient or window.PrivyJsCore</li>
-                    <li>Verify initialization with your App ID</li>
-                    <li>Test fundWallet() to see if it opens checkout</li>
-                </ul>
+
+            <!-- Quick Test Buttons -->
+            <div class="mt-6 flex gap-3 justify-center">
+                <button onclick="window.open('https://privy.io', '_blank')" class="btn btn-secondary text-sm">
+                    🌐 Open Privy.io
+                </button>
+                <button onclick="testDirectAPI()" class="btn btn-secondary text-sm">
+                    🧪 Test API Endpoint
+                </button>
+                <button onclick="clearLog()" class="btn btn-secondary text-sm">
+                    🧹 Clear Log
+                </button>
             </div>
         </div>
     </div>
 
     <script>
         // Logging function
-        const errorLog = document.getElementById('error-log');
+        const consoleLog = document.getElementById('console-log');
         function log(message, type = 'info') {
             const entry = `[${new Date().toLocaleTimeString()}] ${type.toUpperCase()}: ${message}\n`;
-            errorLog.textContent = entry + errorLog.textContent;
+            consoleLog.textContent = entry + consoleLog.textContent;
             console.log(`${type}:`, message);
         }
 
-        // Update status
-        function updateSDKStatus(message, type = 'info') {
-            const statusEl = document.getElementById('sdk-status');
-            statusEl.className = `status ${type}`;
-            statusEl.textContent = message;
+        // Clear log
+        function clearLog() {
+            consoleLog.textContent = 'No entries yet...';
         }
 
-        function updateInitStatus(message, type = 'info') {
-            const statusEl = document.getElementById('init-status');
-            statusEl.className = `status ${type}`;
-            statusEl.textContent = message;
-        }
+        // Copy to clipboard
+        window.copyToClipboard = function(elementId) {
+            const element = document.getElementById(elementId);
+            const text = element.textContent;
+            navigator.clipboard.writeText(text).then(() => {
+                log('Copied to clipboard: ' + text.substring(0, 50) + '...', 'success');
+                alert('Copied to clipboard!');
+            }).catch(err => {
+                log('Failed to copy: ' + err, 'error');
+            });
+        };
 
-        // Inspect window object for Privy
-        function inspectPrivy() {
-            const results = [];
-            
-            // Check various possible Privy locations
-            results.push('window.PrivyClient:', typeof window.PrivyClient);
-            results.push('window.PrivyJsCore:', typeof window.PrivyJsCore);
-            results.push('window.privy:', typeof window.privy);
-            results.push('window.Privy:', typeof window.Privy);
-            
-            if (window.PrivyJsCore) {
-                results.push('\nwindow.PrivyJsCore properties:', Object.keys(window.PrivyJsCore).join(', '));
-            }
-            
-            if (window.PrivyClient) {
-                results.push('\nwindow.PrivyClient is available as constructor');
-            }
-            
-            // Check all scripts loaded
-            const scripts = document.getElementsByTagName('script');
-            results.push('\nLoaded scripts:');
-            for (let script of scripts) {
-                if (script.src.includes('privy')) {
-                    results.push(`  - ${script.src}`);
-                }
-            }
-            
-            document.getElementById('inspect-results').textContent = results.join('\n');
-        }
+        // Tab switching
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                // Remove active class from all tabs and contents
+                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                
+                // Add active class to clicked tab
+                tab.classList.add('active');
+                
+                // Show corresponding content
+                const tabName = tab.dataset.tab;
+                document.getElementById(`tab-${tabName}`).classList.add('active');
+                
+                log(`Switched to tab: ${tabName}`, 'info');
+            });
+        });
 
-        // Initialize Privy
-        let privyClient = null;
-        
-        async function initPrivy() {
+        // Update direct URLs when wallet address changes
+        document.getElementById('wallet-address').addEventListener('input', function(e) {
+            const address = e.target.value.trim();
+            updateDirectUrls(address);
+        });
+
+        function updateDirectUrls(address) {
+            const baseUrl = 'https://privy.io/fund';
             const appId = 'cmlwqj4ar01n20djx41hon6s9';
             const clientId = 'client-WY6W4TBBpokBd6VYh1xRkaAYWBkGvJw6HdVeAr4cvHC9f';
             
-            updateInitStatus('🔄 Attempting to initialize Privy...', 'info');
+            const basicUrl = `${baseUrl}?appId=${appId}&address=${address}&chainId=137&asset=USDC`;
+            const clientUrl = `${baseUrl}?appId=${appId}&clientId=${clientId}&address=${address}&chainId=137&asset=USDC`;
             
-            // Try different initialization patterns
-            try {
-                // Pattern 1: Direct PrivyClient
-                if (window.PrivyClient) {
-                    log('Found window.PrivyClient, attempting initialization...');
-                    privyClient = new window.PrivyClient({
-                        appId: appId,
-                        clientId: clientId
-                    });
-                    updateInitStatus('✅ Privy initialized successfully with window.PrivyClient', 'success');
-                    log('Privy initialized with window.PrivyClient', 'success');
-                    enableTestButton();
-                    return true;
-                }
-                
-                // Pattern 2: PrivyJsCore
-                if (window.PrivyJsCore && window.PrivyJsCore.PrivyClient) {
-                    log('Found window.PrivyJsCore.PrivyClient, attempting initialization...');
-                    privyClient = new window.PrivyJsCore.PrivyClient({
-                        appId: appId,
-                        clientId: clientId
-                    });
-                    updateInitStatus('✅ Privy initialized successfully with PrivyJsCore', 'success');
-                    log('Privy initialized with PrivyJsCore', 'success');
-                    enableTestButton();
-                    return true;
-                }
-                
-                // Pattern 3: Wait a bit and try again
-                log('Privy not found, waiting 2 seconds...');
-                setTimeout(() => {
-                    if (window.PrivyClient) {
-                        privyClient = new window.PrivyClient({
-                            appId: appId,
-                            clientId: clientId
-                        });
-                        updateInitStatus('✅ Privy initialized successfully (delayed)', 'success');
-                        log('Privy initialized after delay', 'success');
-                        enableTestButton();
-                    } else {
-                        updateInitStatus('❌ Privy SDK not available after delay', 'error');
-                        log('Privy SDK not available', 'error');
-                    }
-                }, 2000);
-                
-            } catch (error) {
-                updateInitStatus('❌ Privy initialization failed', 'error');
-                log(`Initialization error: ${error.message}`, 'error');
-                console.error('Privy init error:', error);
-            }
+            document.getElementById('basic-url').textContent = basicUrl;
+            document.getElementById('client-url').textContent = clientUrl;
+            
+            document.getElementById('basic-link').href = basicUrl;
+            document.getElementById('client-link').href = clientUrl;
         }
 
-        function enableTestButton() {
-            document.getElementById('test-fund-btn').disabled = false;
-        }
-
-        // Check SDK on load
-        window.addEventListener('load', () => {
-            log('Page loaded, checking for Privy SDK...');
-            
-            // Check if Privy is available immediately
-            setTimeout(() => {
-                if (window.PrivyClient || (window.PrivyJsCore && window.PrivyJsCore.PrivyClient)) {
-                    updateSDKStatus('✅ Privy SDK detected!', 'success');
-                    log('Privy SDK detected in window object', 'success');
-                    initPrivy();
-                } else {
-                    updateSDKStatus('❌ Privy SDK not detected. Checking again in 2 seconds...', 'error');
-                    log('Privy SDK not found in window object', 'error');
-                    
-                    // Check again after 2 seconds
-                    setTimeout(() => {
-                        if (window.PrivyClient || (window.PrivyJsCore && window.PrivyJsCore.PrivyClient)) {
-                            updateSDKStatus('✅ Privy SDK detected (delayed)!', 'success');
-                            log('Privy SDK detected after delay', 'success');
-                            initPrivy();
-                        } else {
-                            updateSDKStatus('❌ Privy SDK failed to load. Check CDN URLs.', 'error');
-                            log('Privy SDK still not available after delay', 'error');
-                            inspectPrivy();
-                        }
-                    }, 2000);
-                }
-                
-                inspectPrivy();
-            }, 500);
-        });
-
-        // Check SDK button
-        document.getElementById('check-sdk-btn').addEventListener('click', () => {
-            inspectPrivy();
-            
-            if (window.PrivyClient || (window.PrivyJsCore && window.PrivyJsCore.PrivyClient)) {
-                updateSDKStatus('✅ Privy SDK is available!', 'success');
-                log('Privy SDK confirmed available', 'success');
-                initPrivy();
-            } else {
-                updateSDKStatus('❌ Privy SDK not available', 'error');
-                log('Privy SDK not found', 'error');
-            }
-        });
-
-        // Test fundWallet button
-        document.getElementById('test-fund-btn').addEventListener('click', async () => {
-            if (!privyClient) {
-                log('Privy client not initialized', 'error');
-                alert('Privy client not initialized. Please wait or check SDK loading.');
-                return;
-            }
-
-            const walletAddress = document.getElementById('wallet-address').value.trim();
-            if (!walletAddress) {
+        // Load widget
+        document.getElementById('load-widget-btn').addEventListener('click', function() {
+            const address = document.getElementById('wallet-address').value.trim();
+            if (!address) {
                 alert('Please enter a wallet address');
                 return;
             }
 
-            log(`Attempting fundWallet with address: ${walletAddress}`, 'info');
+            const container = document.getElementById('widget-container');
+            const iframe = document.getElementById('privy-iframe');
+            const overlay = document.getElementById('loading-overlay');
+            const status = document.getElementById('widget-status');
+
+            // Show container and loading
+            container.classList.remove('hidden');
+            overlay.classList.remove('hidden');
             
-            try {
-                // Generate a test reference
-                const testRef = 'TEST-' + Date.now().toString(36).toUpperCase();
+            // Construct widget URL
+            const appId = 'cmlwqj4ar01n20djx41hon6s9';
+            const clientId = 'client-WY6W4TBBpokBd6VYh1xRkaAYWBkGvJw6HdVeAr4cvHC9f';
+            
+            // Try different URL patterns
+            const urls = [
+                `https://privy.io/fund?appId=${appId}&clientId=${clientId}&address=${address}&chainId=137&asset=USDC&embed=true`,
+                `https://privy.io/checkout/${appId}?address=${address}&chainId=137&asset=USDC&embed=true`,
+                `https://checkout.privy.io/${appId}?address=${address}&chainId=137&asset=USDC`
+            ];
+
+            // Try first URL
+            const widgetUrl = urls[0];
+            iframe.src = widgetUrl;
+            
+            log(`Loading widget with URL: ${widgetUrl}`, 'info');
+            status.className = 'status info';
+            status.textContent = `🔄 Loading widget... (${widgetUrl})`;
+
+            // Handle iframe load
+            iframe.onload = function() {
+                overlay.classList.add('hidden');
+                status.className = 'status success';
+                status.textContent = '✅ Widget loaded successfully! Check the iframe above.';
+                log('Widget iframe loaded', 'success');
+            };
+
+            iframe.onerror = function() {
+                overlay.classList.add('hidden');
+                status.className = 'status error';
+                status.textContent = '❌ Failed to load widget. Check console for details.';
+                log('Widget iframe failed to load', 'error');
                 
-                // Try to call fundWallet
-                const result = await privyClient.fundWallet({
-                    address: walletAddress,
-                    chainId: 137, // Polygon
-                    asset: 'USDC',
-                    fundingMethods: ['card', 'apple-pay', 'moonpay'],
-                    metadata: {
-                        reference: testRef,
-                        test: true
-                    }
-                });
-                
-                log(`fundWallet result: ${JSON.stringify(result)}`, 'success');
-                alert('fundWallet called successfully! Check console for result.');
-                
-            } catch (error) {
-                log(`fundWallet error: ${error.message}`, 'error');
-                console.error('fundWallet error:', error);
-                alert(`Error: ${error.message}`);
-            }
+                // Try alternative URL
+                log('Attempting alternative URL...', 'info');
+                iframe.src = urls[1];
+            };
+
+            // Timeout after 10 seconds
+            setTimeout(() => {
+                if (!overlay.classList.contains('hidden')) {
+                    overlay.classList.add('hidden');
+                    status.className = 'status warning';
+                    status.textContent = '⚠️ Widget loading timeout. Try opening directly in new tab.';
+                    log('Widget loading timeout', 'warning');
+                }
+            }, 10000);
         });
 
-        // Log all CDN attempts
-        log('Test page loaded. Trying multiple Privy CDN paths...', 'info');
-        log('CDN URLs attempted:', 'info');
-        log('  - https://privy.io/js-sdk-core/privy.umd.js', 'info');
-        log('  - https://privy.io/js-sdk-core/v1/privy.umd.js', 'info');
-        log('  - https://cdn.jsdelivr.net/npm/@privy-io/js-sdk-core@1.0.0/dist/privy.umd.min.js', 'info');
+        // Clear widget
+        document.getElementById('clear-widget-btn').addEventListener('click', function() {
+            const container = document.getElementById('widget-container');
+            const iframe = document.getElementById('privy-iframe');
+            const status = document.getElementById('widget-status');
+            
+            container.classList.add('hidden');
+            iframe.src = 'about:blank';
+            status.className = 'status info';
+            status.textContent = '🔄 Widget cleared. Click "Load Privy Widget" to try again.';
+            
+            log('Widget cleared', 'info');
+        });
+
+        // Test direct API
+        window.testDirectAPI = function() {
+            log('Testing Privy API endpoint...', 'info');
+            
+            fetch('https://privy.io/api/health', {
+                method: 'GET',
+                mode: 'no-cors'
+            })
+            .then(() => {
+                log('API endpoint is reachable (no-cors mode)', 'success');
+            })
+            .catch(err => {
+                log(`API endpoint error: ${err.message}`, 'error');
+            });
+
+            // Try to fetch widget info
+            fetch('https://privy.io/api/v1/widget/config', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    appId: 'cmlwqj4ar01n20djx41hon6s9',
+                    clientId: 'client-WY6W4TBBpokBd6VYh1xRkaAYWBkGvJw6HdVeAr4cvHC9f'
+                })
+            })
+            .then(res => res.json())
+            .then(data => {
+                log(`API response: ${JSON.stringify(data)}`, 'success');
+            })
+            .catch(err => {
+                log(`API config error: ${err.message}`, 'error');
+            });
+        };
+
+        // Initialize with default address
+        updateDirectUrls('0x2b01E2C0024aaF8362a11f91A545F24cB5e5261f');
+        
+        // Log startup
+        log('Privy Direct Integration Test loaded', 'info');
+        log('SDK not required - using direct iframe integration', 'info');
+
+        // Check if privy.io is accessible
+        fetch('https://privy.io', { mode: 'no-cors' })
+            .then(() => log('privy.io is accessible', 'success'))
+            .catch(err => log(`privy.io might be blocked: ${err.message}`, 'warning'));
     </script>
 </body>
 </html>
